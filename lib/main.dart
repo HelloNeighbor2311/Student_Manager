@@ -303,7 +303,6 @@ class _HomeScreenState extends State<HomeScreen> {
           slivers: [
             SliverAppBar(
               pinned: true,
-              expandedHeight: 132,
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               titleSpacing: 16,
@@ -319,52 +318,53 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(width: 8),
               ],
-              flexibleSpace: FlexibleSpaceBar(
-                collapseMode: CollapseMode.pin,
-                background: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 72, 16, 12),
-                    child: _SearchField(
-                      controller: _searchController,
-                      onChanged: (_) {
-                        setState(() {});
-                        _reloadVisibleData();
-                      },
-                    ),
-                  ),
-                ),
-              ),
               bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(56),
+                preferredSize: const Size.fromHeight(106),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _QuickFilterChip(
-                          label: _filterAll,
-                          selected: _selectedQuickFilter == _filterAll,
-                          onSelected: () => _onQuickFilterSelected(_filterAll),
+                  child: Column(
+                    children: [
+                      _SearchField(
+                        controller: _searchController,
+                        onChanged: (_) {
+                          setState(() {});
+                          _reloadVisibleData();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            _QuickFilterChip(
+                              label: _filterAll,
+                              selected: _selectedQuickFilter == _filterAll,
+                              onSelected: () =>
+                                  _onQuickFilterSelected(_filterAll),
+                            ),
+                            _QuickFilterChip(
+                              label: _filterIT,
+                              selected: _selectedQuickFilter == _filterIT,
+                              onSelected: () =>
+                                  _onQuickFilterSelected(_filterIT),
+                            ),
+                            _QuickFilterChip(
+                              label: _filterEco,
+                              selected: _selectedQuickFilter == _filterEco,
+                              onSelected: () =>
+                                  _onQuickFilterSelected(_filterEco),
+                            ),
+                            _QuickFilterChip(
+                              label: _filterGpa,
+                              selected: _selectedQuickFilter == _filterGpa,
+                              onSelected: () =>
+                                  _onQuickFilterSelected(_filterGpa),
+                            ),
+                          ],
                         ),
-                        _QuickFilterChip(
-                          label: _filterIT,
-                          selected: _selectedQuickFilter == _filterIT,
-                          onSelected: () => _onQuickFilterSelected(_filterIT),
-                        ),
-                        _QuickFilterChip(
-                          label: _filterEco,
-                          selected: _selectedQuickFilter == _filterEco,
-                          onSelected: () => _onQuickFilterSelected(_filterEco),
-                        ),
-                        _QuickFilterChip(
-                          label: _filterGpa,
-                          selected: _selectedQuickFilter == _filterGpa,
-                          onSelected: () => _onQuickFilterSelected(_filterGpa),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
