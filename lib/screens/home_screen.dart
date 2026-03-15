@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:student_manager/models/student.dart';
 import 'package:student_manager/screens/detail_screen.dart';
 import 'package:student_manager/screens/student_form_screen.dart';
+import 'package:student_manager/services/student_firestore_service.dart';
 import 'package:student_manager/services/student_service.dart';
 import 'package:student_manager/widgets/student_card.dart';
 
@@ -23,20 +24,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final StudentFirestoreService _firestoreService = StudentFirestoreService();
 
-  final List<Student> _allStudents = StudentService.seedStudents();
+  final List<Student> _allStudents = <Student>[];
   final List<Student> _visibleStudents = <Student>[];
 
   String _selectedQuickFilter = _filterAll;
   SortBy _sortBy = SortBy.nameAZ;
   bool _loadingMore = false;
   bool _hasMore = true;
+  bool _loadingInitial = true;
+  bool _usingCloud = false;
+
+  bool get _firebaseReady => _firestoreService.isFirebaseInitialized;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _reloadVisibleData();
+    _initializeStudents();
   }
 
   @override
@@ -87,8 +93,62 @@ class _HomeScreenState extends State<HomeScreen> {
     return result;
   }
 
+  Future<void> _initializeStudents() async {
+    setState(() => _loadingInitial = true);
+
+    try {
+      if (_firestoreService.isFirebaseInitialized) {
+        final cloudStudents = await _firestoreService.fetchOrSeedStudents(
+          StudentService.seedStudents(),
+        );
+
+        if (!mounted) return;
+        setState(() {
+          _allStudents
+            ..clear()
+            ..addAll(cloudStudents);
+          _usingCloud = true;
+        });
+      } else {
+        _loadLocalSeed();
+      }
+    } catch (_) {
+      _loadLocalSeed();
+    } finally {
+      if (mounted) {
+        _reloadVisibleData();
+        setState(() => _loadingInitial = false);
+      }
+    }
+  }
+
+  void _loadLocalSeed() {
+    _allStudents
+      ..clear()
+      ..addAll(StudentService.seedStudents());
+    _usingCloud = false;
+  }
+
   Future<void> _onRefresh() async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (_firebaseReady) {
+      try {
+        final cloudStudents = await _firestoreService.fetchStudents();
+        if (!mounted) return;
+        setState(() {
+          _allStudents
+            ..clear()
+            ..addAll(cloudStudents);
+          _usingCloud = true;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Làm mới thất bại, vui lòng thử lại.')),
+        );
+      }
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     _reloadVisibleData();
   }
 
@@ -102,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMore() async {
     setState(() => _loadingMore = true);
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 350));
 
     final source = _filteredStudents;
     final nextEnd = min(_visibleStudents.length + _pageSize, source.length);
@@ -151,30 +211,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result == null) return;
 
     if (result.type == StudentDetailActionType.deleted) {
-      setState(() {
-        _allStudents.removeWhere((item) => item.id == student.id);
-      });
-      _reloadVisibleData();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Đã xóa: ${student.name}')));
+      await _deleteStudent(student, showMessage: false);
+      return;
     }
 
     if (result.type == StudentDetailActionType.edited &&
         result.student != null) {
-      final edited = result.student!;
-      final index = _allStudents.indexWhere((item) => item.id == edited.id);
-      if (index >= 0) {
-        setState(() {
-          _allStudents[index] = edited;
-        });
-        _reloadVisibleData();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cập nhật sinh viên thành công')),
-        );
-      }
+      await _saveEditedStudent(result.student!, showMessage: false);
     }
   }
 
@@ -187,13 +230,34 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == null || !mounted) return;
 
-    setState(() {
-      _allStudents.insert(0, result.student);
-    });
-    _reloadVisibleData();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Thêm sinh viên thành công')));
+    try {
+      if (_firebaseReady) {
+        await _firestoreService.addStudent(result.student);
+        _usingCloud = true;
+      }
+
+      setState(() {
+        _allStudents.insert(0, result.student);
+      });
+      _reloadVisibleData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _usingCloud
+                ? 'Thêm sinh viên thành công (đã lưu Firestore)'
+                : 'Thêm sinh viên tạm thời (Local mode)',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể lưu lên Firestore. Dữ liệu chưa được tạo.'),
+        ),
+      );
+    }
   }
 
   Future<void> _openEditStudentForm(Student student) async {
@@ -208,15 +272,82 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == null || !mounted) return;
 
-    final index = _allStudents.indexWhere((item) => item.id == student.id);
+    await _saveEditedStudent(result.student);
+  }
+
+  Future<void> _saveEditedStudent(
+    Student edited, {
+    bool showMessage = true,
+  }) async {
+    final index = _allStudents.indexWhere((item) => item.id == edited.id);
     if (index < 0) return;
-    setState(() {
-      _allStudents[index] = result.student;
-    });
-    _reloadVisibleData();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cập nhật sinh viên thành công')),
-    );
+
+    try {
+      if (_firebaseReady) {
+        await _firestoreService.updateStudent(edited);
+        _usingCloud = true;
+      }
+
+      setState(() {
+        _allStudents[index] = edited;
+      });
+      _reloadVisibleData();
+
+      if (showMessage && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _usingCloud
+                  ? 'Cập nhật sinh viên thành công (Firestore)'
+                  : 'Cập nhật sinh viên tạm thời (Local mode)',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể cập nhật lên Firestore. Dữ liệu chưa đổi.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteStudent(
+    Student student, {
+    bool showMessage = true,
+  }) async {
+    try {
+      if (_firebaseReady) {
+        await _firestoreService.deleteStudent(student.id);
+        _usingCloud = true;
+      }
+
+      setState(() {
+        _allStudents.removeWhere((item) => item.id == student.id);
+      });
+      _reloadVisibleData();
+
+      if (showMessage && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _usingCloud
+                  ? 'Đã xóa: ${student.name} (Firestore)'
+                  : 'Đã xóa cục bộ: ${student.name}',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể xóa trên Firestore. Dữ liệu chưa bị xóa.'),
+        ),
+      );
+    }
   }
 
   void _openSortFilterSheet() {
@@ -316,6 +447,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth < 900 ? 2 : 3;
 
+    if (_loadingInitial) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: _openAddStudentForm,
@@ -332,9 +467,11 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               titleSpacing: 16,
-              title: const Text(
-                'Danh sách sinh viên',
-                style: TextStyle(fontWeight: FontWeight.w700),
+              title: Text(
+                _usingCloud
+                    ? 'Danh sách sinh viên (Firestore)'
+                    : 'Danh sách sinh viên (Local)',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               actions: [
                 _BadgeIconButton(
@@ -417,17 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       student: student,
                       onAvatarTap: () => _openDetail(student),
                       onEdit: () => _openEditStudentForm(student),
-                      onDelete: () {
-                        setState(() {
-                          _allStudents.removeWhere(
-                            (item) => item.id == student.id,
-                          );
-                        });
-                        _reloadVisibleData();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Đã xóa: ${student.name}')),
-                        );
-                      },
+                      onDelete: () => _deleteStudent(student),
                     );
                   },
                 ),

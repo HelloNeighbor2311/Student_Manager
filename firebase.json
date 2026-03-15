@@ -1,0 +1,26 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "studentmanager-7a3b5",
+          "appId": "1:1024315521379:android:88d93c8cb02da66be5bb56",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "studentmanager-7a3b5",
+          "configurations": {
+            "android": "1:1024315521379:android:88d93c8cb02da66be5bb56",
+            "ios": "1:1024315521379:ios:0706e61289362320e5bb56",
+            "web": "1:1024315521379:web:10f3fe26e30b78c5e5bb56"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
