@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:student_manager/models/student.dart';
 import 'package:student_manager/screens/detail_screen.dart';
+import 'package:student_manager/screens/statistics_screen.dart';
 import 'package:student_manager/screens/student_form_screen.dart';
 import 'package:student_manager/services/student_firestore_service.dart';
 import 'package:student_manager/services/student_local_cache_service.dart';
@@ -302,6 +303,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _openStatistics() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => StatisticsScreen(students: _students)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredStudents;
@@ -324,6 +332,11 @@ class _HomeScreenState extends State<HomeScreen> {
               toolbarHeight: 64,
               title: const Text('Student Management - G7'),
               actions: [
+                IconButton(
+                  tooltip: 'Thống kê',
+                  onPressed: _openStatistics,
+                  icon: const Icon(Icons.analytics_outlined),
+                ),
                 PopupMenuButton<SortBy>(
                   tooltip: 'Sắp xếp',
                   initialValue: _sortBy,
