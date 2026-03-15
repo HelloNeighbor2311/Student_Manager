@@ -52,8 +52,11 @@ class StudentCard extends StatelessWidget {
                 const Spacer(),
                 PopupMenuButton<String>(
                   onSelected: (value) {
-                    if (value == 'edit') onEdit();
-                    if (value == 'delete') onDelete();
+                    // Delay action until popup menu route is fully dismissed.
+                    Future<void>.delayed(Duration.zero, () {
+                      if (value == 'edit') onEdit();
+                      if (value == 'delete') onDelete();
+                    });
                   },
                   itemBuilder: (context) => const [
                     PopupMenuItem(value: 'edit', child: Text('Sửa')),
