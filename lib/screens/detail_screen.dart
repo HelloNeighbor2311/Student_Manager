@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:student_manager/models/student.dart';
+import 'package:student_manager/screens/student_form_screen.dart';
 import 'package:student_manager/widgets/student_avatar.dart';
 
-enum StudentDetailAction { deleted }
+enum StudentDetailActionType { deleted, edited }
+
+class StudentDetailResult {
+  const StudentDetailResult({required this.type, this.student});
+
+  final StudentDetailActionType type;
+  final Student? student;
+}
 
 class DetailScreen extends StatelessWidget {
-  const DetailScreen({super.key, required this.student});
+  const DetailScreen({
+    super.key,
+    required this.student,
+    required this.existingStudents,
+  });
 
   final Student student;
+  final List<Student> existingStudents;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +29,10 @@ class DetailScreen extends StatelessWidget {
       length: 3,
       child: Scaffold(
         appBar: AppBar(title: const Text('Chi tiết sinh viên')),
-        bottomNavigationBar: _BottomActionBar(student: student),
+        bottomNavigationBar: _BottomActionBar(
+          student: student,
+          existingStudents: existingStudents,
+        ),
         body: Column(
           children: [
             _HeaderCard(student: student),
@@ -178,9 +194,34 @@ class _ContactTab extends StatelessWidget {
 }
 
 class _BottomActionBar extends StatelessWidget {
-  const _BottomActionBar({required this.student});
+  const _BottomActionBar({
+    required this.student,
+    required this.existingStudents,
+  });
 
   final Student student;
+  final List<Student> existingStudents;
+
+  Future<void> _editStudent(BuildContext context) async {
+    final result = await Navigator.push<StudentFormResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentFormScreen(
+          existingStudents: existingStudents,
+          initialStudent: student,
+        ),
+      ),
+    );
+
+    if (result == null || !context.mounted) return;
+    Navigator.pop(
+      context,
+      StudentDetailResult(
+        type: StudentDetailActionType.edited,
+        student: result.student,
+      ),
+    );
+  }
 
   Future<void> _confirmDelete(BuildContext context) async {
     final shouldDelete = await showDialog<bool>(
@@ -202,7 +243,10 @@ class _BottomActionBar extends StatelessWidget {
     );
 
     if (shouldDelete == true && context.mounted) {
-      Navigator.pop(context, StudentDetailAction.deleted);
+      Navigator.pop(
+        context,
+        const StudentDetailResult(type: StudentDetailActionType.deleted),
+      );
     }
   }
 
@@ -226,11 +270,7 @@ class _BottomActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đi tới màn hình chỉnh sửa.')),
-                  );
-                },
+                onPressed: () => _editStudent(context),
                 icon: const Icon(Icons.edit_outlined),
                 label: const Text('Chỉnh sửa'),
               ),

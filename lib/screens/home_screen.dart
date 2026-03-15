@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:student_manager/models/student.dart';
 import 'package:student_manager/screens/detail_screen.dart';
+import 'package:student_manager/screens/student_form_screen.dart';
 import 'package:student_manager/services/student_service.dart';
 import 'package:student_manager/widgets/student_card.dart';
 
@@ -139,12 +140,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openDetail(Student student) async {
-    final action = await Navigator.push<StudentDetailAction>(
+    final result = await Navigator.push<StudentDetailResult>(
       context,
-      MaterialPageRoute(builder: (_) => DetailScreen(student: student)),
+      MaterialPageRoute(
+        builder: (_) =>
+            DetailScreen(student: student, existingStudents: _allStudents),
+      ),
     );
 
-    if (action == StudentDetailAction.deleted) {
+    if (result == null) return;
+
+    if (result.type == StudentDetailActionType.deleted) {
       setState(() {
         _allStudents.removeWhere((item) => item.id == student.id);
       });
@@ -154,6 +160,63 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Đã xóa: ${student.name}')));
     }
+
+    if (result.type == StudentDetailActionType.edited &&
+        result.student != null) {
+      final edited = result.student!;
+      final index = _allStudents.indexWhere((item) => item.id == edited.id);
+      if (index >= 0) {
+        setState(() {
+          _allStudents[index] = edited;
+        });
+        _reloadVisibleData();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cập nhật sinh viên thành công')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openAddStudentForm() async {
+    final result = await Navigator.push<StudentFormResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentFormScreen(existingStudents: _allStudents),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _allStudents.insert(0, result.student);
+    });
+    _reloadVisibleData();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Thêm sinh viên thành công')));
+  }
+
+  Future<void> _openEditStudentForm(Student student) async {
+    final result = await Navigator.push<StudentFormResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentFormScreen(
+          existingStudents: _allStudents,
+          initialStudent: student,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    final index = _allStudents.indexWhere((item) => item.id == student.id);
+    if (index < 0) return;
+    setState(() {
+      _allStudents[index] = result.student;
+    });
+    _reloadVisibleData();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cập nhật sinh viên thành công')),
+    );
   }
 
   void _openSortFilterSheet() {
@@ -255,11 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đi tới màn hình thêm sinh viên.')),
-          );
-        },
+        onPressed: _openAddStudentForm,
         child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
@@ -357,11 +416,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     return StudentCard(
                       student: student,
                       onAvatarTap: () => _openDetail(student),
-                      onEdit: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Sửa: ${student.name}')),
-                        );
-                      },
+                      onEdit: () => _openEditStudentForm(student),
                       onDelete: () {
                         setState(() {
                           _allStudents.removeWhere(

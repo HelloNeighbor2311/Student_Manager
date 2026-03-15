@@ -22,13 +22,16 @@ class StudentAvatar extends StatelessWidget {
     final fallbackText = student.name.trim().isEmpty
         ? '?'
         : student.name.trim().substring(0, 1).toUpperCase();
+    final hasBytes = student.avatarBytes != null;
     final hasUrl = student.avatarUrl?.isNotEmpty ?? false;
 
     final avatar = SizedBox(
       width: size,
       height: size,
       child: ClipOval(
-        child: hasUrl
+        child: hasBytes
+            ? Image.memory(student.avatarBytes!, fit: BoxFit.cover)
+            : hasUrl
             ? Image.network(
                 student.avatarUrl!,
                 fit: BoxFit.cover,

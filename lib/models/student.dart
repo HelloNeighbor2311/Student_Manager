@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum AcademicRank { excellent, good, fair, average }
 
 enum SortBy { nameAZ, gpaDesc, studentId }
@@ -20,6 +22,7 @@ class Student {
     required this.gender,
     required this.gpa,
     this.avatarUrl,
+    this.avatarBytes,
   });
 
   final String id;
@@ -36,6 +39,7 @@ class Student {
   final Gender gender;
   final double gpa;
   final String? avatarUrl;
+  final Uint8List? avatarBytes;
 
   AcademicRank get academicRank {
     if (gpa >= 3.6) return AcademicRank.excellent;
