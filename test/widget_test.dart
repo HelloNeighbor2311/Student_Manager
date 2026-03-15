@@ -16,7 +16,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const StudentManagerApp());
 
-    expect(find.textContaining('Danh sách sinh viên'), findsOneWidget);
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Student Management - G7'), findsOneWidget);
+    expect(find.byIcon(Icons.person_add_alt_1_rounded), findsOneWidget);
   });
 }
