@@ -1,9 +1,9 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:student_manager/models/student.dart';
+import 'package:student_manager/services/avatar_storage_service.dart';
 
 class StudentFormResult {
   const StudentFormResult({required this.student, required this.isEdit});
@@ -48,8 +48,13 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
   Uint8List? _avatarBytes;
 
   final _picker = ImagePicker();
+  final _avatarStorageService = AvatarStorageService();
   bool _dirty = false;
   bool _showMissingDateError = false;
+  bool _isSubmitting = false;
+  bool _avatarChanged = false;
+
+  static const int _phoneMaxLength = 10;
 
   static const _departments = ['CNTT', 'Kinh Tế'];
   static const _majorsByDepartment = {
@@ -122,6 +127,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     setState(() {
       _avatarBytes = bytes;
       _avatarUrl = null;
+      _avatarChanged = true;
       _dirty = true;
     });
   }
@@ -174,6 +180,14 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     }
   }
 
+  String _normalizeStudentCode(String value) {
+    return value.trim().toUpperCase();
+  }
+
+  String _normalizeEmail(String value) {
+    return value.trim().toLowerCase();
+  }
+
   String? _validateRequired(String? value, String fieldName) {
     if (value == null || value.trim().isEmpty) {
       return '$fieldName là bắt buộc';
@@ -184,7 +198,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
   String? _validateEmail(String? value) {
     final required = _validateRequired(value, 'Email');
     if (required != null) return required;
-    final email = value!.trim();
+    final email = _normalizeEmail(value!);
     final regex = RegExp(r'^[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}$');
     if (!regex.hasMatch(email)) {
       return 'Email không đúng định dạng (example@domain.com)';
@@ -194,8 +208,12 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
 
   String? _validatePhone(String? value) {
     if (value == null || value.trim().isEmpty) return null;
-    if (!RegExp(r'^\d{10}$').hasMatch(value.trim())) {
-      return 'SĐT phải gồm đúng 10 số';
+    final phone = value.trim();
+    if (!RegExp(r'^\d+$').hasMatch(phone)) {
+      return 'SĐT chỉ được chứa chữ số';
+    }
+    if (phone.length != _phoneMaxLength) {
+      return 'SĐT phải gồm đúng $_phoneMaxLength số';
     }
     return null;
   }
@@ -211,11 +229,15 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
   String? _validateStudentCode(String? value) {
     final required = _validateRequired(value, 'MSSV');
     if (required != null) return required;
-    final code = value!.trim().toLowerCase();
+    final code = _normalizeStudentCode(value!);
+    final formatRegex = RegExp(r'^[A-Z0-9\-]{6,20}$');
+    if (!formatRegex.hasMatch(code)) {
+      return 'MSSV gồm 6-20 ký tự: chữ, số hoặc dấu -';
+    }
     final editingId = widget.initialStudent?.id;
 
     final duplicate = widget.existingStudents.any(
-      (s) => s.studentCode.toLowerCase() == code && s.id != editingId,
+      (s) => _normalizeStudentCode(s.studentCode) == code && s.id != editingId,
     );
 
     if (duplicate) return 'MSSV đã tồn tại trong hệ thống';
@@ -244,7 +266,9 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     return discard ?? false;
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_isSubmitting) return;
+
     final isValid = _formKey.currentState?.validate() ?? false;
     if (_birthDate == null) {
       setState(() => _showMissingDateError = true);
@@ -257,30 +281,56 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
         _major == null ||
         _className == null ||
         _course == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập đầy đủ thông tin hợp lệ.')),
-      );
       return;
     }
 
     final base = widget.initialStudent;
+    final studentId = base?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+    var avatarUrl = _avatarUrl;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    if (_avatarChanged && _avatarBytes != null) {
+      try {
+        avatarUrl = await _avatarStorageService.uploadStudentAvatar(
+          studentId: studentId,
+          bytes: _avatarBytes!,
+        );
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload ảnh đại diện thất bại. Vui lòng thử lại.'),
+          ),
+        );
+        setState(() {
+          _isSubmitting = false;
+        });
+        return;
+      }
+    }
+
     final student = Student(
-      id: base?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: studentId,
       name: _nameController.text.trim(),
-      studentCode: _studentCodeController.text.trim(),
+      studentCode: _normalizeStudentCode(_studentCodeController.text),
       className: _className!,
       department: _department!,
       major: _major!,
       course: _course!,
-      email: _emailController.text.trim(),
+      email: _normalizeEmail(_emailController.text),
       phone: _phoneController.text.trim(),
       address: _addressController.text.trim(),
       birthDate: _birthDate!,
       gender: _gender!,
       gpa: double.parse(_gpaController.text.trim()),
-      avatarUrl: _avatarUrl,
+      avatarUrl: avatarUrl,
       avatarBytes: _avatarBytes,
     );
+
+    if (!mounted) return;
 
     Navigator.pop(
       context,
@@ -314,7 +364,9 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () async {
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
                       final discard = await _confirmDiscard();
                       if (!mounted || !discard) return;
                       Navigator.of(this.context).pop();
@@ -325,8 +377,14 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _save,
-                    child: const Text('Lưu'),
+                    onPressed: _isSubmitting ? null : _save,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Lưu'),
                   ),
                 ),
               ],
@@ -354,7 +412,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                         color: Theme.of(context).colorScheme.primary,
                         shape: const CircleBorder(),
                         child: IconButton(
-                          onPressed: _openImageSourceSheet,
+                          onPressed: _isSubmitting ? null : _openImageSourceSheet,
                           icon: const Icon(
                             Icons.camera_alt,
                             color: Colors.white,
@@ -375,6 +433,11 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
               TextFormField(
                 controller: _studentCodeController,
                 decoration: const InputDecoration(labelText: 'MSSV *'),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
+                  LengthLimitingTextInputFormatter(20),
+                  _UpperCaseTextFormatter(),
+                ],
                 validator: _validateStudentCode,
               ),
               const SizedBox(height: 12),
@@ -389,6 +452,10 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'SĐT'),
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(_phoneMaxLength),
+                ],
                 validator: _validatePhone,
               ),
               const SizedBox(height: 12),
@@ -497,6 +564,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: const [_GpaTextInputFormatter()],
                 validator: _validateGpa,
               ),
               const SizedBox(height: 96),
@@ -505,6 +573,35 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
         ),
       ),
     );
+  }
+}
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  const _UpperCaseTextFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(text: newValue.text.toUpperCase());
+  }
+}
+
+class _GpaTextInputFormatter extends TextInputFormatter {
+  const _GpaTextInputFormatter();
+
+  static final RegExp _gpaRegex = RegExp(r'^(?:[0-3](?:\.\d{0,2})?|4(?:\.0{0,2})?)?$');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (_gpaRegex.hasMatch(newValue.text)) {
+      return newValue;
+    }
+    return oldValue;
   }
 }
 
