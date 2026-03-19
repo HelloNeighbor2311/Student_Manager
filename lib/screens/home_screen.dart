@@ -34,9 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
   SortBy _sortBy = SortBy.nameAZ;
   String _departmentFilter = 'Tất cả';
   int _visibleCount = _pageSize;
-  bool _isGridView = false;
+  final bool _isGridView = false;
   bool _multiSelectMode = false;
-  Set<String> _selectedStudentIds = {};
+  final Set<String> _selectedStudentIds = {};
 
   @override
   void initState() {
@@ -459,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Học kỳ Xuân 2024',
+                            'Nhóm 7-G3',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: Colors.white70,
                             ),
