@@ -89,6 +89,20 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
       _course = student.course;
       _avatarUrl = student.avatarUrl;
       _avatarBytes = student.avatarBytes;
+
+      // Ensure dropdown initial values always exist in current option lists.
+      if (!_departments.contains(_department)) {
+        _department = null;
+      }
+      if (!_majors.contains(_major)) {
+        _major = null;
+      }
+      if (!_classNames.contains(_className)) {
+        _className = null;
+      }
+      if (!_courses.contains(_course)) {
+        _course = null;
+      }
     }
 
     for (final c in [

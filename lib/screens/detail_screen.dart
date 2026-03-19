@@ -56,7 +56,13 @@ class _DetailScreenState extends State<DetailScreen> {
     );
 
     if (result != null && mounted) {
-      setState(() => _currentStudent = result.student);
+      Navigator.pop(
+        context,
+        StudentDetailResult(
+          type: StudentDetailActionType.edited,
+          student: result.student,
+        ),
+      );
     }
   }
 
