@@ -1,7 +1,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:student_manager/firebase_options.dart';
+import 'package:student_manager/config/supabase_config.dart';
 import 'package:student_manager/screens/home_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +13,15 @@ Future<void> main() async {
     );
   } catch (_) {
     // App still runs with local fallback if Firebase is not configured yet.
+  }
+
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (_) {
+    // App still runs without Supabase avatar uploads.
   }
 
   runApp(const StudentManagerApp());
