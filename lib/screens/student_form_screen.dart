@@ -65,6 +65,17 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
   ];
   static const _courses = ['K18', 'K19', 'K20', 'K21'];
 
+  List<String> _withSelectedValue(List<String> options, String? selected) {
+    if (selected == null) return options;
+    final value = selected.trim();
+    if (value.isEmpty) return options;
+    if (options.contains(value)) return options;
+    return [...options, value];
+  }
+
+  List<String> get _baseMajorsByDepartment =>
+      _majorsByDepartment[_department] ?? const [];
+
   @override
   void initState() {
     super.initState();
@@ -113,7 +124,8 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     super.dispose();
   }
 
-  List<String> get _majors => _majorsByDepartment[_department] ?? const [];
+  List<String> get _majors =>
+      _withSelectedValue(_baseMajorsByDepartment, _major);
 
   Future<void> _pickImage(ImageSource source) async {
     final file = await _picker.pickImage(source: source, imageQuality: 80);
@@ -294,6 +306,9 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     final birthDateText = _birthDate == null
         ? 'Chọn ngày sinh'
         : DateFormat('dd/MM/yyyy').format(_birthDate!);
+    final departmentOptions = _withSelectedValue(_departments, _department);
+    final classOptions = _withSelectedValue(_classNames, _className);
+    final courseOptions = _withSelectedValue(_courses, _course);
 
     return PopScope(
       canPop: false,
@@ -434,13 +449,13 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                 key: ValueKey('department-$_department'),
                 initialValue: _department,
                 decoration: const InputDecoration(labelText: 'Khoa *'),
-                items: _departments
+                items: departmentOptions
                     .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                     .toList(),
                 validator: (value) => value == null ? 'Khoa là bắt buộc' : null,
                 onChanged: (value) => setState(() {
                   _department = value;
-                  if (!_majors.contains(_major)) {
+                  if (!_baseMajorsByDepartment.contains(_major)) {
                     _major = null;
                   }
                   _dirty = true;
@@ -465,7 +480,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _className,
                 decoration: const InputDecoration(labelText: 'Lớp *'),
-                items: _classNames
+                items: classOptions
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 validator: (value) => value == null ? 'Lớp là bắt buộc' : null,
@@ -478,7 +493,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _course,
                 decoration: const InputDecoration(labelText: 'Khóa học *'),
-                items: _courses
+                items: courseOptions
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 validator: (value) =>

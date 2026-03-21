@@ -25,9 +25,18 @@ class StudentAvatar extends StatelessWidget {
     final hasBytes = student.avatarBytes != null;
     final hasUrl = student.avatarUrl?.isNotEmpty ?? false;
 
-    final avatar = SizedBox(
+    final avatar = Container(
       width: size,
       height: size,
+      padding: const EdgeInsets.all(2),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF76C9CC), Color(0xFF3A8FCA)],
+        ),
+      ),
       child: ClipOval(
         child: hasBytes
             ? Image.memory(student.avatarBytes!, fit: BoxFit.cover)
@@ -63,13 +72,20 @@ class _AvatarFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFDAEEF1),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFD8F0F7), Color(0xFFC9E4F4)],
+        ),
+      ),
       alignment: Alignment.center,
       child: Text(
         text,
         style: const TextStyle(
+          fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF10454B),
+          color: Color(0xFF145061),
         ),
       ),
     );

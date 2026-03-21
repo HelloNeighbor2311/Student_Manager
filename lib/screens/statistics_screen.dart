@@ -1,21 +1,29 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:student_manager/models/student.dart';
 
 class StatisticsScreen extends StatelessWidget {
-  const StatisticsScreen({super.key, required this.students});
+  const StatisticsScreen({super.key, required this.studentsListenable});
 
-  final List<Student> students;
+  final ValueListenable<List<Student>> studentsListenable;
 
   @override
   Widget build(BuildContext context) {
-    final total = students.length;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Statistics & Reports')),
-      body: total == 0
-          ? const Center(child: Text('Chưa có dữ liệu sinh viên để thống kê.'))
-          : _StatisticsBody(students: students),
+      body: ValueListenableBuilder<List<Student>>(
+        valueListenable: studentsListenable,
+        builder: (context, students, _) {
+          final total = students.length;
+          if (total == 0) {
+            return const Center(
+              child: Text('Chưa có dữ liệu sinh viên để thống kê.'),
+            );
+          }
+          return _StatisticsBody(students: students);
+        },
+      ),
     );
   }
 }
