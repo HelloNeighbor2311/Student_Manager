@@ -51,8 +51,6 @@ class StudentCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
-          splashColor: primary.withValues(alpha: 0.4),
-          highlightColor: primary.withValues(alpha: 0.2),
           child: Padding(
             padding: const EdgeInsets.all(13),
             child: Column(

@@ -63,15 +63,15 @@ class _DetailScreenState extends State<DetailScreen> {
       ),
     );
 
-    if (result != null && mounted) {
-      Navigator.pop(
-        context,
-        StudentDetailResult(
-          type: StudentDetailActionType.edited,
-          student: result.student,
-        ),
-      );
-    }
+    if (result == null || !context.mounted) return;
+
+    Navigator.pop(
+      context,
+      StudentDetailResult(
+        type: StudentDetailActionType.edited,
+        student: result.student,
+      ),
+    );
   }
 
   void _confirmDelete(BuildContext context) {
@@ -246,7 +246,7 @@ class _DetailScreenState extends State<DetailScreen> {
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: _getRankColor(rank).withOpacity(0.1),
+              color: _getRankColor(rank).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -288,7 +288,7 @@ class _DetailScreenState extends State<DetailScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
