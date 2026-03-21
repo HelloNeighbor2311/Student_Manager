@@ -2,7 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:student_manager/firebase_options.dart';
+// import 'package:student_manager/config/supabase_config.dart';
 import 'package:student_manager/screens/home_screen.dart';
+// import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +15,16 @@ Future<void> main() async {
   } catch (_) {
     // App still runs with local fallback if Firebase is not configured yet.
   }
+
+  // Supabase initialization disabled - package not available
+  // try {
+  //   await Supabase.initialize(
+  //     url: SupabaseConfig.url,
+  //     anonKey: SupabaseConfig.anonKey,
+  //   );
+  // } catch (_) {
+  //   // App still runs without Supabase avatar uploads.
+  // }
 
   runApp(const StudentManagerApp());
 }
@@ -29,7 +41,7 @@ class StudentManagerApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Student Manager',
+      title: 'MH5_HAU',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,

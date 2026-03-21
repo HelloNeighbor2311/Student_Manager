@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+// import 'package:url_launcher/url_launcher.dart';
 import 'package:student_manager/models/student.dart';
 import 'package:student_manager/screens/student_form_screen.dart';
 import 'package:student_manager/widgets/student_avatar.dart';
@@ -8,12 +9,11 @@ enum StudentDetailActionType { deleted, edited }
 
 class StudentDetailResult {
   const StudentDetailResult({required this.type, this.student});
-
   final StudentDetailActionType type;
   final Student? student;
 }
 
-class DetailScreen extends StatelessWidget {
+class DetailScreen extends StatefulWidget {
   const DetailScreen({
     super.key,
     required this.student,
@@ -24,285 +24,385 @@ class DetailScreen extends StatelessWidget {
   final List<Student> existingStudents;
 
   @override
+  State<DetailScreen> createState() => _DetailScreenState();
+}
+
+class _DetailScreenState extends State<DetailScreen> {
+  late Student _currentStudent;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStudent = widget.student;
+  }
+
+  // Hàm hỗ trợ gọi điện/gửi mail (requires url_launcher package)
+  // Future<void> _launchUrl(String url) async {
+  //   final uri = Uri.parse(url);
+  //   if (await canLaunchUrl(uri)) {
+  //     await launchUrl(uri);
+  //   }
+  // }
+
+  void _showFeatureInfo(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tính năng này cần cài đặt package url_launcher'),
+      ),
+    );
+  }
+
+  void _editStudent(BuildContext context) async {
+    final result = await Navigator.push<StudentFormResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentFormScreen(
+          existingStudents: widget.existingStudents,
+          initialStudent: _currentStudent,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      Navigator.pop(
+        context,
+        StudentDetailResult(
+          type: StudentDetailActionType.edited,
+          student: result.student,
+        ),
+      );
+    }
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa sinh viên ${_currentStudent.name}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx); // Đóng dialog
+              Navigator.pop(
+                context,
+                StudentDetailResult(
+                  type: StudentDetailActionType.deleted,
+                  student: _currentStudent,
+                ),
+              );
+            },
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Chi tiết sinh viên')),
-        bottomNavigationBar: _BottomActionBar(
-          student: student,
-          existingStudents: existingStudents,
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text(
+            'Chi tiết sinh viên',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
         ),
         body: Column(
           children: [
-            _HeaderCard(student: student),
-            const TabBar(
-              isScrollable: true,
-              tabs: [
-                Tab(text: 'Thông tin cá nhân'),
-                Tab(text: 'Học tập'),
-                Tab(text: 'Liên hệ'),
-              ],
+            // --- HEADER SECTION ---
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Hero(
+                    tag: studentAvatarHeroTag(_currentStudent.id),
+                    child: StudentAvatar(student: _currentStudent, size: 120),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _currentStudent.name,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'MSSV: ${_currentStudent.studentCode}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+            // --- TAB BAR ---
+            Container(
+              color: Colors.white,
+              child: const TabBar(
+                labelColor: Color(0xFF006D77),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Color(0xFF006D77),
+                indicatorWeight: 3,
+                tabs: [
+                  Tab(text: 'Cá nhân'),
+                  Tab(text: 'Học tập'),
+                  Tab(text: 'Liên hệ'),
+                ],
+              ),
+            ),
+
+            // --- TAB CONTENT ---
             Expanded(
               child: TabBarView(
                 children: [
-                  _PersonalTab(student: student),
-                  _AcademicTab(student: student),
-                  _ContactTab(student: student),
+                  _buildPersonalInfo(),
+                  _buildAcademicInfo(),
+                  _buildContactInfo(),
                 ],
               ),
             ),
           ],
         ),
+
+        // --- BOTTOM ACTION BAR ---
+        bottomNavigationBar: _buildBottomBar(context),
       ),
     );
   }
-}
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.student});
-
-  final Student student;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+  Widget _buildPersonalInfo() {
+    return ListView(
       padding: const EdgeInsets.all(16),
+      children: [
+        _InfoTile(
+          label: 'Ngày sinh',
+          value: DateFormat('dd/MM/yyyy').format(_currentStudent.birthDate),
+          icon: Icons.cake_outlined,
+        ),
+        _InfoTile(
+          label: 'Giới tính',
+          value: _currentStudent.gender.name == 'male' ? 'Nam' : 'Nữ',
+          icon: Icons.person_outline,
+        ),
+        _InfoTile(
+          label: 'Địa chỉ',
+          value: _currentStudent.address,
+          icon: Icons.location_on_outlined,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAcademicInfo() {
+    final rank = _currentStudent.academicRank;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _InfoTile(
+          label: 'Khoa',
+          value: _currentStudent.department,
+          icon: Icons.account_balance_outlined,
+        ),
+        _InfoTile(
+          label: 'Ngành',
+          value: _currentStudent.major,
+          icon: Icons.school_outlined,
+        ),
+        _InfoTile(
+          label: 'Lớp',
+          value: _currentStudent.className,
+          icon: Icons.class_outlined,
+        ),
+        _InfoTile(
+          label: 'Khóa học',
+          value: _currentStudent.course,
+          icon: Icons.calendar_today_outlined,
+        ),
+        const Divider(height: 32),
+        _InfoTile(
+          label: 'GPA',
+          value: _currentStudent.gpa.toStringAsFixed(2),
+          icon: Icons.grade_outlined,
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getRankColor(rank).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _getRankText(rank),
+              style: TextStyle(
+                color: _getRankColor(rank),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContactInfo() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _InfoTile(
+          label: 'Email',
+          value: _currentStudent.email,
+          icon: Icons.email_outlined,
+          onTap: () => _showFeatureInfo(context),
+        ),
+        _InfoTile(
+          label: 'Số điện thoại',
+          value: _currentStudent.phone,
+          icon: Icons.phone_outlined,
+          onTap: () => _showFeatureInfo(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 12,
-            offset: Offset(0, 6),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
           ),
         ],
       ),
       child: Row(
         children: [
-          StudentAvatar(student: student, size: 84, useHero: true),
-          const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  student.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: Color(0xFF006D77)),
+                foregroundColor: const Color(0xFF006D77),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'MSSV: ${student.studentCode}',
-                  style: const TextStyle(color: Colors.black54),
+              ),
+              onPressed: () => _editStudent(context),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Chỉnh sửa'),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color(0xFFE29578),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+              ),
+              onPressed: () => _confirmDelete(context),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Xóa'),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _PersonalTab extends StatelessWidget {
-  const _PersonalTab({required this.student});
-
-  final Student student;
-
-  @override
-  Widget build(BuildContext context) {
-    final dateText = DateFormat('dd/MM/yyyy').format(student.birthDate);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _InfoTile(title: 'Ngày sinh', value: dateText),
-        _InfoTile(title: 'Giới tính', value: student.genderLabel),
-        _InfoTile(title: 'Địa chỉ', value: student.address),
-      ],
-    );
-  }
-}
-
-class _AcademicTab extends StatelessWidget {
-  const _AcademicTab({required this.student});
-
-  final Student student;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _InfoTile(title: 'Khoa', value: student.department),
-        _InfoTile(title: 'Ngành', value: student.major),
-        _InfoTile(title: 'Lớp', value: student.className),
-        _InfoTile(title: 'Khóa học', value: student.course),
-        _InfoTile(title: 'GPA', value: student.gpa.toStringAsFixed(2)),
-        _InfoTile(title: 'Học lực', value: student.academicRankLabel),
-      ],
-    );
-  }
-}
-
-class _ContactTab extends StatelessWidget {
-  const _ContactTab({required this.student});
-
-  final Student student;
-
-  void _showActionMessage(BuildContext context, String label) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Đang mở chức năng $label...')));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _InfoTile(title: 'Email', value: student.email),
-        Card(
-          child: ListTile(
-            title: const Text('SĐT'),
-            subtitle: Text(student.phone),
-            trailing: Wrap(
-              spacing: 6,
-              children: [
-                IconButton(
-                  tooltip: 'Gọi',
-                  icon: const Icon(Icons.call_outlined),
-                  onPressed: () => _showActionMessage(context, 'gọi điện'),
-                ),
-                IconButton(
-                  tooltip: 'Nhắn tin',
-                  icon: const Icon(Icons.sms_outlined),
-                  onPressed: () => _showActionMessage(context, 'nhắn tin'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BottomActionBar extends StatelessWidget {
-  const _BottomActionBar({
-    required this.student,
-    required this.existingStudents,
-  });
-
-  final Student student;
-  final List<Student> existingStudents;
-
-  Future<void> _editStudent(BuildContext context) async {
-    final result = await Navigator.push<StudentFormResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StudentFormScreen(
-          existingStudents: existingStudents,
-          initialStudent: student,
-        ),
-      ),
-    );
-
-    if (result == null || !context.mounted) return;
-    Navigator.pop(
-      context,
-      StudentDetailResult(
-        type: StudentDetailActionType.edited,
-        student: result.student,
-      ),
-    );
-  }
-
-  Future<void> _confirmDelete(BuildContext context) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa sinh viên ${student.name}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldDelete == true && context.mounted) {
-      Navigator.pop(
-        context,
-        const StudentDetailResult(type: StudentDetailActionType.deleted),
-      );
+  Color _getRankColor(AcademicRank rank) {
+    switch (rank) {
+      case AcademicRank.excellent:
+        return const Color(0xFF0A8F5A);
+      case AcademicRank.good:
+        return const Color(0xFFC99A00);
+      case AcademicRank.fair:
+        return const Color(0xFFE67E22);
+      case AcademicRank.average:
+        return const Color(0xFF7F8C8D);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x12000000),
-              blurRadius: 12,
-              offset: Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _editStudent(context),
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Chỉnh sửa'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () => _confirmDelete(context),
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Xóa'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _getRankText(AcademicRank rank) {
+    switch (rank) {
+      case AcademicRank.excellent:
+        return 'Xuất sắc';
+      case AcademicRank.good:
+        return 'Giỏi';
+      case AcademicRank.fair:
+        return 'Khá';
+      case AcademicRank.average:
+        return 'Trung bình';
+    }
   }
 }
 
 class _InfoTile extends StatelessWidget {
-  const _InfoTile({required this.title, required this.value});
+  const _InfoTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.trailing,
+    this.onTap,
+  });
 
-  final String title;
+  final String label;
   final String value;
+  final IconData icon;
+  final Widget? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(title: Text(title), subtitle: Text(value)),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEDF6F9),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: const Color(0xFF006D77), size: 20),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+      ),
+      subtitle: Text(
+        value,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF2D3748),
+        ),
+      ),
+      trailing:
+          trailing ??
+          (onTap != null
+              ? const Icon(Icons.chevron_right, color: Colors.grey)
+              : null),
+      onTap: onTap,
     );
   }
 }

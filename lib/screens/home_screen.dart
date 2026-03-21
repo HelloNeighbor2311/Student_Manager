@@ -7,6 +7,7 @@ import 'package:student_manager/services/student_firestore_service.dart';
 import 'package:student_manager/services/student_local_cache_service.dart';
 import 'package:student_manager/services/student_service.dart';
 import 'package:student_manager/widgets/student_card.dart';
+import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const int _pageSize = 12;
+  static const int _pageSize = 20;
 
   final StudentFirestoreService _firestoreService = StudentFirestoreService();
   final StudentLocalCacheService _localCacheService =
@@ -322,580 +323,203 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _showSortSheet() async {
-    final selected = await showModalBottomSheet<SortBy>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.sort_by_alpha_rounded),
-              title: const Text('Tên A-Z'),
-              selected: _sortBy == SortBy.nameAZ,
-              onTap: () => Navigator.pop(context, SortBy.nameAZ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.trending_down_rounded),
-              title: const Text('GPA giảm dần'),
-              selected: _sortBy == SortBy.gpaDesc,
-              onTap: () => Navigator.pop(context, SortBy.gpaDesc),
-            ),
-            ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('MSSV tăng dần'),
-              selected: _sortBy == SortBy.studentId,
-              onTap: () => Navigator.pop(context, SortBy.studentId),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
-    if (selected == null) return;
-    setState(() {
-      _sortBy = selected;
-    });
-    _resetPaging();
-  }
-
-  Future<void> _scrollToTop() async {
-    if (!_scrollController.hasClients) return;
-    await _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredStudents;
     final students = _visibleStudents;
-    final isFiltering =
-        _departmentFilter != 'Tất cả' ||
-        _searchController.text.trim().isNotEmpty;
-    final avgGpa = _students.isEmpty
-        ? 0.0
-        : _students.fold<double>(0.0, (sum, s) => sum + s.gpa) /
-              _students.length;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _addStudent,
-        child: const Icon(Icons.person_add_alt_1_rounded),
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('Thêm'),
       ),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-        height: 74,
-        child: Row(
-          children: [
-            _BottomNavButton(
-              icon: Icons.home_rounded,
-              label: 'Trang chủ',
-              onTap: _scrollToTop,
-            ),
-            _BottomNavButton(
-              icon: Icons.analytics_outlined,
-              label: 'Thống kê',
-              onTap: _openStatistics,
-            ),
-            const Spacer(),
-            _BottomNavButton(
-              icon: Icons.sort_rounded,
-              label: 'Sắp xếp',
-              onTap: _showSortSheet,
-            ),
-            _BottomNavButton(
-              icon: Icons.refresh_rounded,
-              label: 'Tải lại',
-              onTap: _loadStudents,
-            ),
-          ],
-        ),
-      ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    colorScheme.primary.withValues(alpha: 0.13),
-                    const Color(0xFFF1F6FA),
-                    Colors.white,
+      body: RefreshIndicator(
+        onRefresh: _loadStudents,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              toolbarHeight: 64,
+              title: const Text('Student Management - G7'),
+              actions: [
+                IconButton(
+                  tooltip: 'Thống kê',
+                  onPressed: _openStatistics,
+                  icon: const Icon(Icons.analytics_outlined),
+                ),
+                PopupMenuButton<SortBy>(
+                  tooltip: 'Sắp xếp',
+                  initialValue: _sortBy,
+                  onSelected: (value) {
+                    setState(() {
+                      _sortBy = value;
+                    });
+                    _resetPaging();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: SortBy.nameAZ, child: Text('Tên A-Z')),
+                    PopupMenuItem(
+                      value: SortBy.gpaDesc,
+                      child: Text('GPA giảm dần'),
+                    ),
+                    PopupMenuItem(
+                      value: SortBy.studentId,
+                      child: Text('MSSV tăng dần'),
+                    ),
                   ],
                 ),
-              ),
+              ],
             ),
-          ),
-          RefreshIndicator(
-            onRefresh: _loadStudents,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  expandedHeight: 186,
-                  toolbarHeight: 64,
-                  title: const Text('Student Manager'),
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 74, 16, 14),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF0D8A90), Color(0xFF54A6DC)],
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x351F5D7A),
-                                blurRadius: 18,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        isFiltering
-                                            ? '${filtered.length}/${_students.length} sinh viên phù hợp bộ lọc'
-                                            : '${_students.length} sinh viên đang quản lý',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Dữ liệu đồng bộ Firestore và bộ nhớ cục bộ',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          color: Color(0xFFD7F5FF),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.auto_graph_rounded,
-                                  size: 34,
-                                  color: Colors.white.withValues(alpha: 0.95),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  bottom: PreferredSize(
-                    preferredSize: const Size.fromHeight(36),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: _StatPill(
-                        icon: Icons.people_alt_rounded,
-                        label: 'Phù hợp',
-                        value: '${filtered.length}/${_students.length}',
-                      ),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-                    child: _SearchBarCard(
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedHeaderDelegate(
+                height: 64,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: SizedBox(
+                    height: 48,
+                    child: TextField(
                       controller: _searchController,
                       onChanged: (_) {
                         setState(() {});
                         _resetPaging();
                       },
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() {});
-                        _resetPaging();
-                      },
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _StatPill(
-                            icon: Icons.school_rounded,
-                            label: 'GPA TB',
-                            value: avgGpa.toStringAsFixed(2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          height: 44,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: ['Tất cả', 'CNTT', 'Kinh Tế']
-                                .map((dept) {
-                                  final selected = dept == _departmentFilter;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                      showCheckmark: false,
-                                      label: Text(dept),
-                                      selected: selected,
-                                      onSelected: (_) {
-                                        setState(() {
-                                          _departmentFilter = dept;
-                                        });
-                                        _resetPaging();
-                                      },
-                                    ),
-                                  );
-                                })
-                                .toList(growable: false),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_loadError != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Material(
-                        color: const Color(0xFFFFF3E4),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline_rounded,
-                                color: Color(0xFF9B5A00),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _loadError!,
-                                  style: const TextStyle(
-                                    color: Color(0xFF8A5100),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm theo tên, MSSV, lớp...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
                         ),
                       ),
                     ),
                   ),
-                if (_isLoading)
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (filtered.isEmpty)
-                  const SliverFillRemaining(child: _EmptyState())
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
-                    sliver: SliverLayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.crossAxisExtent;
-                        final crossAxisCount = width >= 1040
-                            ? 4
-                            : width >= 740
-                            ? 3
-                            : 2;
-
-                        return SliverGrid(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final student = students[index];
-                            return StudentCard(
-                              student: student,
-                              onTap: () => _openDetails(student),
-                              onAvatarTap: () => _openDetails(student),
-                              onEdit: () => _editStudent(student),
-                              onDelete: () => _confirmDelete(student),
-                            );
-                          }, childCount: students.length),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                mainAxisExtent: 245,
+                ),
+              ),
+            ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedHeaderDelegate(
+                height: 48,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: ['Tất cả', 'CNTT', 'Kinh Tế']
+                          .map((dept) {
+                            final selected = dept == _departmentFilter;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(dept),
+                                selected: selected,
+                                onSelected: (_) {
+                                  setState(() {
+                                    _departmentFilter = dept;
+                                  });
+                                  _resetPaging();
+                                },
                               ),
-                        );
-                      },
+                            );
+                          })
+                          .toList(growable: false),
                     ),
                   ),
-                if (!_isLoading && students.length < filtered.length)
-                  const SliverToBoxAdapter(
+                ),
+              ),
+            ),
+            if (_loadError != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Material(
+                    color: const Color(0xFFFFF4E5),
+                    borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: EdgeInsets.only(bottom: 118),
-                      child: Center(child: CircularProgressIndicator()),
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _loadError!,
+                        style: const TextStyle(color: Color(0xFF8A5100)),
+                      ),
                     ),
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatPill extends StatelessWidget {
-  const _StatPill({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: const Color(0xFF0F6C74)),
-            const SizedBox(width: 6),
-            Text(
-              '$label: ',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2B3A42),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0B4A57),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 74,
-              height: 74,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFFDFF1F8),
-              ),
-              child: const Icon(
-                Icons.manage_search_rounded,
-                size: 36,
-                color: Color(0xFF0A6C78),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Không có sinh viên phù hợp',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Thử đổi bộ lọc hoặc từ khóa để tìm đúng danh sách bạn cần.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF5E6B75),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomNavButton extends StatelessWidget {
-  const _BottomNavButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Future<void> Function() onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          onTap();
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 21),
-              const SizedBox(height: 1),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchBarCard extends StatelessWidget {
-  const _SearchBarCard({
-    required this.controller,
-    required this.onChanged,
-    required this.onClear,
-  });
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0x160F6C74), width: 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D0B3A4A),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          Icon(
-            Icons.search_rounded,
-            size: 24,
-            color: colorScheme.primary.withValues(alpha: 0.8),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              decoration: const InputDecoration(
-                hintText: 'Tìm theo tên, MSSV, lớp...',
-                isDense: true,
-                fillColor: Colors.transparent,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          if (controller.text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Material(
-                color: colorScheme.primary.withValues(alpha: 0.12),
-                shape: const CircleBorder(),
-                child: IconButton(
-                  tooltip: 'Xóa tìm kiếm',
-                  onPressed: onClear,
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: colorScheme.primary,
-                    size: 18,
+            if (_isLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (filtered.isEmpty)
+              const SliverFillRemaining(
+                child: Center(child: Text('Không có sinh viên phù hợp.')),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final student = students[index];
+                    return StudentCard(
+                      student: student,
+                      onTap: () => _openDetails(student),
+                      onAvatarTap: () => _openDetails(student),
+                      onEdit: () => _editStudent(student),
+                      onDelete: () => _confirmDelete(student),
+                    );
+                  }, childCount: students.length),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 245,
                   ),
                 ),
               ),
-            )
-          else
-            const SizedBox(width: 10),
-        ],
+            if (!_isLoading && students.length < filtered.length)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 110),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _PinnedHeaderDelegate({required this.height, required this.child});
+
+  final double height;
+  final Widget child;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }
