@@ -329,11 +329,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final students = _visibleStudents;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
         onPressed: _addStudent,
-        icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('Thêm'),
+        elevation: 8,
+        child: const Icon(Icons.person_add_alt_1_rounded),
       ),
+      bottomNavigationBar: _buildBottomNavBar(context),
       body: RefreshIndicator(
         onRefresh: _loadStudents,
         child: CustomScrollView(
@@ -377,60 +379,36 @@ class _HomeScreenState extends State<HomeScreen> {
               pinned: true,
               delegate: _PinnedHeaderDelegate(
                 height: 64,
-                child: Padding(
+                child: Container(
+                  color: Colors.white,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: SizedBox(
-                    height: 48,
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (_) {
-                        setState(() {});
-                        _resetPaging();
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Tìm theo tên, MSSV, lớp...',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (_) {
+                      setState(() {});
+                      _resetPaging();
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Tìm theo tên, MSSV, lớp...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _PinnedHeaderDelegate(
-                height: 48,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: ['Tất cả', 'CNTT', 'Kinh Tế']
-                          .map((dept) {
-                            final selected = dept == _departmentFilter;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(dept),
-                                selected: selected,
-                                onSelected: (_) {
-                                  setState(() {
-                                    _departmentFilter = dept;
-                                  });
-                                  _resetPaging();
-                                },
-                              ),
-                            );
-                          })
-                          .toList(growable: false),
                     ),
                   ),
                 ),
@@ -463,7 +441,7 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                 sliver: SliverGrid(
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final student = students[index];
@@ -486,13 +464,75 @@ class _HomeScreenState extends State<HomeScreen> {
             if (!_isLoading && students.length < filtered.length)
               const SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: 110),
+                  padding: EdgeInsets.only(bottom: 120),
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBottomNavBar(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: Colors.grey[200]!, width: 1),
+            ),
+          ),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            children: ['Tất cả', 'CNTT', 'Kinh Tế']
+                .map((dept) {
+                  final selected = dept == _departmentFilter;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(dept),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() {
+                          _departmentFilter = dept;
+                        });
+                        _resetPaging();
+                      },
+                      selectedColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.2),
+                      side: selected
+                          ? BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2,
+                            )
+                          : BorderSide(color: Colors.grey[400]!),
+                    ),
+                  );
+                })
+                .toList(growable: false),
+          ),
+        ),
+        BottomAppBar(
+          notchMargin: 8,
+          elevation: 12,
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Spacer(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
