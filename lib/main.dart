@@ -1,8 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:student_manager/firebase_options.dart';
+import 'package:student_manager/screens/auth_gate.dart';
 // import 'package:student_manager/config/supabase_config.dart';
-import 'package:student_manager/screens/home_screen.dart';
 // import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
@@ -11,8 +11,8 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-  } catch (_) {
-    // App still runs with local fallback if Firebase is not configured yet.
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
   }
 
   // Supabase initialization disabled - package not available
@@ -133,7 +133,7 @@ class StudentManagerApp extends StatelessWidget {
           suffixIconColor: colorScheme.primary,
         ),
       ),
-      home: const HomeScreen(),
+      home: const AuthGate(),
     );
   }
 }

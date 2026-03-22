@@ -25,20 +25,11 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return linux;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -47,7 +38,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCrnC9ko_l7YJ6HEUmdHK6k3fCHiH-oZw0',
+    apiKey: 'AIzaSyBo0yHS0xs-BmCfUbHLFj1plmluIBudvG8',
     appId: '1:1024315521379:web:10f3fe26e30b78c5e5bb56',
     messagingSenderId: '1024315521379',
     projectId: 'studentmanager-7a3b5',
@@ -57,7 +48,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBnWZhIJLjgLpXMLoY46KRyV7bTkzq87ig',
+    apiKey: 'AIzaSyDN8miYrOXklJXP9rmcG4ufNGXsR4VAHC0',
     appId: '1:1024315521379:android:88d93c8cb02da66be5bb56',
     messagingSenderId: '1024315521379',
     projectId: 'studentmanager-7a3b5',
@@ -72,4 +63,9 @@ class DefaultFirebaseOptions {
     storageBucket: 'studentmanager-7a3b5.firebasestorage.app',
     iosBundleId: 'com.example.studentManager',
   );
+
+  // Desktop apps can use the same Firebase web app configuration.
+  static const FirebaseOptions macos = web;
+  static const FirebaseOptions windows = web;
+  static const FirebaseOptions linux = web;
 }
