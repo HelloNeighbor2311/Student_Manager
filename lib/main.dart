@@ -40,7 +40,7 @@ class StudentManagerApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'MH5_HAU',
+      title: 'Student Manager',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,

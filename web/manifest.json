@@ -1,6 +1,6 @@
 {
-    "name": "MH5_HAU",
-    "short_name": "MH5_HAU",
+    "name": "Student Manager",
+    "short_name": "Student Manager",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
