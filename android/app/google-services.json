@@ -12,15 +12,32 @@
           "package_name": "com.example.student_manager"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1024315521379-g7d007m96htafspc6td4fs7e2ht8k9e1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyBnWZhIJLjgLpXMLoY46KRyV7bTkzq87ig"
+          "current_key": "AIzaSyDN8miYrOXklJXP9rmcG4ufNGXsR4VAHC0"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1024315521379-g7d007m96htafspc6td4fs7e2ht8k9e1.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1024315521379-htg5572e49n4v9jflpki5nv857eeevod.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.studentManager"
+              }
+            }
+          ]
         }
       }
     }
