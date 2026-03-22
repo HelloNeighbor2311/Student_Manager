@@ -3,6 +3,7 @@ import 'package:student_manager/models/student.dart';
 import 'package:student_manager/screens/detail_screen.dart';
 import 'package:student_manager/screens/statistics_screen.dart';
 import 'package:student_manager/screens/student_form_screen.dart';
+import 'package:student_manager/services/auth_service.dart';
 import 'package:student_manager/services/student_firestore_service.dart';
 import 'package:student_manager/services/student_local_cache_service.dart';
 import 'package:student_manager/services/student_service.dart';
@@ -155,7 +156,12 @@ class _HomeScreenState extends State<HomeScreen> {
       case SortBy.gpaDesc:
         list.sort((a, b) => b.gpa.compareTo(a.gpa));
       case SortBy.studentId:
-        list.sort((a, b) => a.studentCode.compareTo(b.studentCode));
+        list.sort((a, b) {
+          // Extract numeric part from student code for proper numeric sorting
+          final aNum = int.tryParse(a.studentCode.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          final bNum = int.tryParse(b.studentCode.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          return aNum.compareTo(bNum);
+        });
     }
 
     return list;
@@ -373,6 +379,39 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận đăng xuất'),
+        content: const Text('Bạn có chắc muốn đăng xuất khỏi ứng dụng?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await AuthService().signOut();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi khi đăng xuất: $e'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredStudents;
@@ -444,14 +483,28 @@ class _HomeScreenState extends State<HomeScreen> {
             onRefresh: _loadStudents,
             child: CustomScrollView(
               controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
+              cacheExtent: 250,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               slivers: [
                 SliverAppBar(
                   pinned: true,
                   expandedHeight: 186,
                   toolbarHeight: 64,
+                  elevation: 0,
+                  scrolledUnderElevation: 8,
+                  forceElevated: true,
                   title: const Text('Student Manager'),
+                  actions: [
+                    IconButton(
+                      tooltip: 'Đăng xuất',
+                      icon: const Icon(Icons.logout_rounded),
+                      onPressed: _logout,
+                    ),
+                  ],
                   flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.parallax,
                     background: SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 74, 16, 14),
@@ -620,7 +673,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     );
                                   })
-                                  .toList(growable: false),
+                                  ,
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: FilterChip(
@@ -714,19 +767,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             : 2;
 
                         return SliverGrid(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final student = students[index];
-                            return StudentCard(
-                              student: student,
-                              onTap: () => _openDetails(student),
-                              onAvatarTap: () => _openDetails(student),
-                              onEdit: () => _editStudent(student),
-                              onDelete: () => _confirmDelete(student),
-                            );
-                          }, childCount: students.length),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final student = students[index];
+                              return StudentCard(
+                                key: ValueKey(student.id),
+                                student: student,
+                                onTap: () => _openDetails(student),
+                                onAvatarTap: () => _openDetails(student),
+                                onEdit: () => _editStudent(student),
+                                onDelete: () => _confirmDelete(student),
+                              );
+                            },
+                            childCount: students.length,
+                            addRepaintBoundaries: true,
+                            addAutomaticKeepAlives: true,
+                          ),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: crossAxisCount,
