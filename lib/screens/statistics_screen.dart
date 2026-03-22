@@ -2,6 +2,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:student_manager/models/student.dart';
 
+class ScholarshipStudent {
+  final Student student;
+  final String scholarship;
+
+  ScholarshipStudent({required this.student, required this.scholarship});
+}
+
 class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key, required this.studentsListenable});
 
@@ -45,6 +52,12 @@ class StatisticsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _SectionCard(
+                  title: 'GPA trung bình theo khóa (Đường)',
+                  subtitle: 'Xu hướng chất lượng theo từng khóa học',
+                  child: _buildAvgByCourseAreaChart(avgByCourse),
+                ),
+                const SizedBox(height: 16),
+                _SectionCard(
                   title: 'Phân bố GPA toàn trường (Biểu đồ miền)',
                   subtitle: 'Mức độ tập trung theo dải điểm',
                   child: _buildGpaAreaChart(students),
@@ -54,6 +67,13 @@ class StatisticsScreen extends StatelessWidget {
                   title: 'Số lượng theo lớp (Cột)',
                   subtitle: 'Top lớp có sĩ số cao',
                   child: _buildTopGroupCountBar(classCount, top: 8),
+                ),
+                const SizedBox(height: 16),
+
+                _SectionCard(
+                  title: 'Top 3 Sinh viên học bổng theo Khoa - Khóa',
+                  subtitle: 'Sinh viên GPA cao nhất mỗi khoa theo khóa',
+                  child: _buildScholarshipTable(students),
                 ),
                 const SizedBox(height: 16),
                 _SectionCard(
@@ -85,6 +105,86 @@ class StatisticsScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Map<String, List<Student>> _top3ScholarshipByDepartmentCourse(
+    List<Student> students,
+  ) {
+    final Map<String, List<Student>> groups = {};
+
+    for (final s in students) {
+      final dept = s.department.trim().isEmpty
+          ? 'Chưa phân khoa'
+          : s.department;
+      final course = s.course.trim().isEmpty ? 'Chưa khóa' : s.course;
+
+      final key = '$dept - $course';
+
+      groups.putIfAbsent(key, () => []);
+      groups[key]!.add(s);
+    }
+
+    final result = <String, List<Student>>{};
+
+    groups.forEach((key, list) {
+      list.sort((a, b) => b.gpa.compareTo(a.gpa));
+      result[key] = list.take(3).toList();
+    });
+
+    return result;
+  }
+
+  Widget _buildScholarshipTable(List<Student> students) {
+    final data = _top3ScholarshipByDepartmentCourse(students);
+
+    return Column(
+      children: data.entries.map((entry) {
+        final group = entry.key;
+        final list = entry.value;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Khoa - Khóa: $group",
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DataTable(
+                  columns: const [
+                    DataColumn(label: Text("Top")),
+                    DataColumn(label: Text("Tên")),
+                    DataColumn(label: Text("MSSV")),
+                    DataColumn(label: Text("GPA")),
+                    DataColumn(label: Text("Học lực")),
+                  ],
+                  rows: List.generate(list.length, (i) {
+                    final s = list[i];
+
+                    return DataRow(
+                      cells: [
+                        DataCell(Text("#${i + 1}")),
+                        DataCell(Text(s.name)),
+                        DataCell(Text(s.studentCode)),
+                        DataCell(Text(s.gpa.toStringAsFixed(2))),
+                        DataCell(Text(s.academicRankLabel)),
+                      ],
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
