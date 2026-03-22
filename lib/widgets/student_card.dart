@@ -35,19 +35,32 @@ class StudentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (rankText, rankColor) = _rankStyle(student.academicRank);
     final primary = Theme.of(context).colorScheme.primary;
+    final isWarning = student.isWarning;
 
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x122A4258),
+            color: isWarning
+                ? const Color(0xFFDC2626).withValues(alpha: 0.2)
+                : const Color(0x122A4258),
             blurRadius: 18,
-            offset: Offset(0, 10),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Card(
+        color: isWarning ? const Color(0xFFFEE2E2) : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: isWarning
+              ? const BorderSide(
+                  color: Color(0xFFDC2626),
+                  width: 2,
+                )
+              : BorderSide.none,
+        ),
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
@@ -101,7 +114,7 @@ class StudentCard extends StatelessWidget {
                     fontSize: 16,
                     height: 1.2,
                     fontWeight: FontWeight.w800,
-                    color: primary,
+                    color: isWarning ? const Color(0xFF7F1D1D) : primary,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -145,13 +158,15 @@ class StudentCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: primary.withValues(alpha: 0.11),
+                        color: isWarning
+                            ? const Color(0xFFDC2626).withValues(alpha: 0.14)
+                            : primary.withValues(alpha: 0.11),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         'GPA ${student.gpa.toStringAsFixed(2)}',
                         style: TextStyle(
-                          color: primary,
+                          color: isWarning ? const Color(0xFFDC2626) : primary,
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
                         ),
@@ -159,6 +174,42 @@ class StudentCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (isWarning) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.14),
+                      border: Border.all(
+                        color: const Color(0xFFDC2626),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.warning_rounded,
+                          size: 12,
+                          color: Color(0xFFDC2626),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Cảnh báo: GPA < 2.0',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF7F1D1D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

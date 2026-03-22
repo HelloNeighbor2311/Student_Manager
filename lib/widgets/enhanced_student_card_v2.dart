@@ -212,23 +212,28 @@ class _EnhancedStudentCardState extends State<EnhancedStudentCard>
 
   /// Build main card with all content
   Widget _buildMainCard(BuildContext context, AcademicRank rank) {
+    final isWarning = widget.student.isWarning;
     return Transform.translate(
       offset: _swipeOffset,
       child: Card(
         elevation: 2,
-        color: StudentCardConstants.whiteBackground,
+        color: isWarning
+            ? StudentCardConstants.warningBackgroundColor
+            : StudentCardConstants.whiteBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(StudentCardConstants.cardBorderRadius),
         ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(StudentCardConstants.cardBorderRadius),
-            border: widget.isSelected
-                ? Border.all(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 2,
-                  )
-                : null,
+            border: Border.all(
+              color: isWarning
+                  ? StudentCardConstants.warningBorderColor
+                  : widget.isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
+              width: 2,
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(StudentCardConstants.cardPadding),
@@ -243,6 +248,10 @@ class _EnhancedStudentCardState extends State<EnhancedStudentCard>
                 _buildGPABadges(rank),
                 const SizedBox(height: StudentCardConstants.spacingMedium),
                 _buildDepartmentInfo(),
+                if (isWarning) ...[
+                  const SizedBox(height: StudentCardConstants.spacingLarge),
+                  _buildWarningBanner(),
+                ],
               ],
             ),
           ),
@@ -382,6 +391,43 @@ class _EnhancedStudentCardState extends State<EnhancedStudentCard>
         fontSize: StudentCardConstants.fontSizeSmall,
         color: StudentCardConstants.greyText,
         fontStyle: FontStyle.italic,
+      ),
+    );
+  }
+
+  /// Build warning banner for low GPA students (GPA < 2.0)
+  Widget _buildWarningBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: StudentCardConstants.spacingMedium,
+        vertical: StudentCardConstants.spacingSmall,
+      ),
+      decoration: BoxDecoration(
+        color: StudentCardConstants.warningBackgroundColor,
+        border: Border.all(
+          color: StudentCardConstants.warningBorderColor,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.warning_rounded,
+            size: StudentCardConstants.iconSizeSmall,
+            color: StudentCardConstants.warningIconColor,
+          ),
+          const SizedBox(width: StudentCardConstants.spacingSmall),
+          Text(
+            'Cảnh báo: GPA dưới 2.0',
+            style: TextStyle(
+              fontSize: StudentCardConstants.fontSizeSmall,
+              fontWeight: FontWeight.w600,
+              color: StudentCardConstants.warningTextColor,
+            ),
+          ),
+        ],
       ),
     );
   }

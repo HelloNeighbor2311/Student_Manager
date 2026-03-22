@@ -49,6 +49,12 @@ class StudentCardConstants {
     AcademicRank.average: const Color(0xFF8B0000),
   };
 
+  // Colors - Warning Status (GPA < 2.0)
+  static const Color warningBorderColor = Color(0xFFDC2626); // Red-600
+  static const Color warningBackgroundColor = Color(0xFFFEE2E2); // Red-50
+  static const Color warningTextColor = Color(0xFF7F1D1D); // Red-900
+  static const Color warningIconColor = Color(0xFFDC2626); // Red-600
+
   // Generic colors
   static const Color greyText = Colors.grey;
   static const Color errorRed = Colors.red;

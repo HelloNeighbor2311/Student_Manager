@@ -61,6 +61,9 @@ class Student {
     return AcademicRank.average;
   }
 
+  /// Check if student is in warning status (GPA < 2.0)
+  bool get isWarning => gpa < 2.0;
+
   String get academicRankLabel {
     switch (academicRank) {
       case AcademicRank.excellent:

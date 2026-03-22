@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _loadError;
   SortBy _sortBy = SortBy.nameAZ;
   String _departmentFilter = 'Tất cả';
+  bool _showWarningOnly = false;
   int _visibleCount = _pageSize;
 
   @override
@@ -138,6 +139,8 @@ class _HomeScreenState extends State<HomeScreen> {
               _departmentFilter == 'Tất cả' ||
               student.department == _departmentFilter;
           if (!inDepartment) return false;
+
+          if (_showWarningOnly && !student.isWarning) return false;
 
           if (q.isEmpty) return true;
           return student.name.toLowerCase().contains(q) ||
@@ -592,25 +595,69 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 44,
                           child: ListView(
                             scrollDirection: Axis.horizontal,
-                            children: ['Tất cả', 'CNTT', 'Kinh Tế']
-                                .map((dept) {
-                                  final selected = dept == _departmentFilter;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                      showCheckmark: false,
-                                      label: Text(dept),
-                                      selected: selected,
-                                      onSelected: (_) {
-                                        setState(() {
-                                          _departmentFilter = dept;
-                                        });
-                                        _resetPaging();
-                                      },
-                                    ),
-                                  );
-                                })
-                                .toList(growable: false),
+                            children: [
+                              ...[
+                                'Tất cả',
+                                'CNTT',
+                                'Kinh Tế',
+                              ]
+                                  .map((dept) {
+                                    final selected =
+                                        dept == _departmentFilter;
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 8),
+                                      child: ChoiceChip(
+                                        showCheckmark: false,
+                                        label: Text(dept),
+                                        selected: selected,
+                                        onSelected: (_) {
+                                          setState(() {
+                                            _departmentFilter = dept;
+                                          });
+                                          _resetPaging();
+                                        },
+                                      ),
+                                    );
+                                  })
+                                  .toList(growable: false),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.warning_rounded,
+                                          size: 16),
+                                      SizedBox(width: 4),
+                                      Text('Cảnh báo'),
+                                    ],
+                                  ),
+                                  selected: _showWarningOnly,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _showWarningOnly = selected;
+                                    });
+                                    _resetPaging();
+                                  },
+                                  backgroundColor:
+                                      Colors.white.withValues(alpha: 0.7),
+                                  selectedColor: const Color(0xFFFEE2E2),
+                                  side: BorderSide(
+                                    color: _showWarningOnly
+                                        ? const Color(0xFFDC2626)
+                                        : Colors.grey[300] ?? Colors.grey,
+                                    width: 1.5,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: _showWarningOnly
+                                        ? const Color(0xFF7F1D1D)
+                                        : Colors.grey[700],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
