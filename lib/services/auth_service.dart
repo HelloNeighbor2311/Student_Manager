@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -11,7 +12,28 @@ class AuthService {
   GoogleSignIn? _googleSignIn;
 
   GoogleSignIn get _googleSignInClient {
-    return _googleSignIn ??= GoogleSignIn(scopes: const ['email']);
+    return _googleSignIn ??= _initializeGoogleSignIn();
+  }
+
+  GoogleSignIn _initializeGoogleSignIn() {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS uses the GIDClientID from Info.plist
+      return GoogleSignIn(
+        scopes: const ['email', 'profile'],
+        clientId: '1024315521379-htg5572e49n4v9jflpki5nv857eeevod.apps.googleusercontent.com',
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      // Android uses the OAuth client from google-services.json
+      return GoogleSignIn(
+        scopes: const ['email', 'profile'],
+        clientId: '1024315521379-g7d007m96htafspc6td4fs7e2ht8k9e1.apps.googleusercontent.com',
+      );
+    } else {
+      // For other platforms (web, desktop)
+      return GoogleSignIn(
+        scopes: const ['email', 'profile'],
+      );
+    }
   }
 
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
@@ -55,28 +77,59 @@ class AuthService {
         return await _firebaseAuth.signInWithPopup(provider);
       }
 
+      debugPrint('Starting Google Sign-In on ${defaultTargetPlatform.toString()}');
+      
       final googleUser = await _googleSignInClient.signIn();
       if (googleUser == null) {
         throw StateError('Bạn đã hủy đăng nhập Google.');
       }
 
+      debugPrint('Google user signed in: ${googleUser.email}');
+
       final googleAuth = await googleUser.authentication;
+      if (googleAuth.accessToken == null) {
+        debugPrint('Access token is null');
+        throw StateError('Không thể lấy access token từ Google. Vui lòng thử lại.');
+      }
+      
+      if (googleAuth.idToken == null) {
+        debugPrint('ID token is null');
+        throw StateError('Không thể lấy ID token từ Google. Vui lòng thử lại.');
+      }
+
+      debugPrint('Got authentication tokens from Google');
+
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      return await _firebaseAuth.signInWithCredential(credential);
+      debugPrint('Created Firebase credential, signing in...');
+
+      final result = await _firebaseAuth.signInWithCredential(credential);
+      
+      debugPrint('Successfully signed in with Google: ${result.user?.email}');
+      
+      return result;
     } on FirebaseAuthException catch (e) {
       debugPrint('Auth signInWithGoogle failed: ${e.code} | ${e.message}');
       throw StateError(_buildDetailedError(e));
+    } catch (e) {
+      debugPrint('Unexpected error during Google Sign-In: $e');
+      throw StateError('Đăng nhập Google thất bại: ${e.toString()}');
     }
   }
 
   Future<void> signOut() async {
-    await _firebaseAuth.signOut();
-    if (_googleSignIn != null) {
-      await _googleSignIn!.signOut().catchError((_) => null);
+    try {
+      await _firebaseAuth.signOut();
+      if (_googleSignIn != null) {
+        await _googleSignIn!.signOut().catchError((_) => null);
+      }
+      debugPrint('Successfully signed out');
+    } catch (e) {
+      debugPrint('Error during sign out: $e');
+      rethrow;
     }
   }
 
