@@ -9,17 +9,66 @@ class ScholarshipStudent {
   ScholarshipStudent({required this.student, required this.scholarship});
 }
 
-class StatisticsScreen extends StatelessWidget {
+class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key, required this.studentsListenable});
 
   final ValueNotifier<List<Student>> studentsListenable;
+
+  @override
+  State<StatisticsScreen> createState() => _StatisticsScreenState();
+}
+
+class _StatisticsScreenState extends State<StatisticsScreen> {
+  String? _focusedSectionId;
+  Rect? _focusRect;
+  final GlobalKey _stackKey = GlobalKey();
+  final Map<String, GlobalKey> _sectionKeys = <String, GlobalKey>{};
+
+  bool _isFocused(String id) => _focusedSectionId == id;
+
+  GlobalKey _sectionKey(String id) {
+    return _sectionKeys.putIfAbsent(id, () => GlobalKey(debugLabel: id));
+  }
+
+  void _toggleFocus(String id) {
+    setState(() {
+      _focusedSectionId = _focusedSectionId == id ? null : id;
+      if (_focusedSectionId == null) {
+        _focusRect = null;
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateFocusRect();
+    });
+  }
+
+  void _updateFocusRect() {
+    if (!mounted || _focusedSectionId == null) return;
+
+    final stackContext = _stackKey.currentContext;
+    final sectionContext = _sectionKeys[_focusedSectionId!]?.currentContext;
+    if (stackContext == null || sectionContext == null) return;
+
+    final stackBox = stackContext.findRenderObject() as RenderBox?;
+    final sectionBox = sectionContext.findRenderObject() as RenderBox?;
+    if (stackBox == null || sectionBox == null) return;
+
+    final offset = sectionBox.localToGlobal(Offset.zero, ancestor: stackBox);
+    final newRect = offset & sectionBox.size;
+
+    if (_focusRect == newRect) return;
+    setState(() {
+      _focusRect = newRect;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard thống kê')),
       body: ValueListenableBuilder<List<Student>>(
-        valueListenable: studentsListenable,
+        valueListenable: widget.studentsListenable,
         builder: (context, students, _) {
           if (students.isEmpty) {
             return const Center(child: Text('Không có dữ liệu thống kê'));
@@ -32,78 +81,165 @@ class StatisticsScreen extends StatelessWidget {
           final avgByDepartment = _averageGpaBy(students, (s) => s.department);
           final avgByCourse = _averageGpaBy(students, (s) => s.course);
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildStatisticsCards(students),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'Phân bổ theo khoa/ngành (Pie)',
-                  subtitle: 'Tỷ trọng sinh viên giữa các khoa',
-                  child: _buildDepartmentPieChart(departmentCount),
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'So sánh GPA trung bình theo khoa (Cột)',
-                  subtitle: 'Top khoa có quy mô lớn nhất',
-                  child: _buildAvgGpaByDepartmentBar(students, avgByDepartment),
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'GPA trung bình theo khóa (Đường)',
-                  subtitle: 'Xu hướng chất lượng theo từng khóa học',
-                  child: _buildAvgByCourseAreaChart(avgByCourse),
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'Phân bố GPA toàn trường (Biểu đồ miền)',
-                  subtitle: 'Mức độ tập trung theo dải điểm',
-                  child: _buildGpaAreaChart(students),
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'Số lượng theo lớp (Cột)',
-                  subtitle: 'Top lớp có sĩ số cao',
-                  child: _buildTopGroupCountBar(classCount, top: 8),
-                ),
-                const SizedBox(height: 16),
+          if (_focusedSectionId != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateFocusRect();
+            });
+          }
 
-                _SectionCard(
-                  title: 'Top 3 Sinh viên học bổng theo Khoa - Khóa',
-                  subtitle: 'Sinh viên GPA cao nhất mỗi khoa theo khóa',
-                  child: _buildScholarshipTable(students),
+          return Stack(
+            key: _stackKey,
+            children: [
+              SingleChildScrollView(
+                physics: _focusedSectionId == null
+                    ? const BouncingScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatisticsCards(students),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'dept-pie',
+                      title: 'Phân bổ theo khoa/ngành (Pie)',
+                      subtitle: 'Tỷ trọng sinh viên giữa các khoa',
+                      details: const [
+                        'Nhấn lại để thu gọn.',
+                        'Bảng màu thể hiện tỷ trọng theo từng khoa/ngành.',
+                      ],
+                      child: _buildDepartmentPieChart(departmentCount),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'dept-gpa-bar',
+                      title: 'So sánh GPA trung bình theo khoa (Cột)',
+                      subtitle: 'Top khoa có quy mô lớn nhất',
+                      details: const [
+                        'Mỗi cột đại diện GPA trung bình của 1 khoa.',
+                        'Khi focus, bạn có thể quan sát nhãn trục rõ hơn.',
+                      ],
+                      child: _buildAvgGpaByDepartmentBar(
+                        students,
+                        avgByDepartment,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'course-line',
+                      title: 'GPA trung bình theo khóa (Đường)',
+                      subtitle: 'Xu hướng chất lượng theo từng khóa học',
+                      details: const [
+                        'Đường càng cao thì chất lượng GPA trung bình càng tốt.',
+                        'Hữu ích để so sánh xu hướng theo từng niên khóa.',
+                      ],
+                      child: _buildAvgByCourseAreaChart(avgByCourse),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'gpa-area',
+                      title: 'Phân bố GPA toàn trường (Biểu đồ miền)',
+                      subtitle: 'Mức độ tập trung theo dải điểm',
+                      details: const [
+                        'Đỉnh miền cao cho biết nhiều sinh viên ở dải GPA đó.',
+                        'Dùng để đánh giá phân bố chất lượng toàn cục.',
+                      ],
+                      child: _buildGpaAreaChart(students),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'class-bar',
+                      title: 'Số lượng theo lớp (Cột)',
+                      subtitle: 'Top lớp có sĩ số cao',
+                      details: const [
+                        'Các nhãn trục đã xoay để tránh chồng chữ.',
+                        'Ưu tiên hiển thị lớp có số lượng sinh viên lớn.',
+                      ],
+                      child: _buildTopGroupCountBar(classCount, top: 8),
+                    ),
+                    const SizedBox(height: 16),
+
+                    _buildInteractiveSection(
+                      id: 'scholarship-table',
+                      title: 'Top 3 Sinh viên học bổng theo Khoa - Khóa',
+                      subtitle: 'Sinh viên GPA cao nhất mỗi khoa theo khóa',
+                      details: const [
+                        'Bảng có cuộn ngang để không tràn viền.',
+                        'Tên và mã sinh viên dài sẽ được rút gọn thông minh.',
+                      ],
+                      child: _buildScholarshipTable(context, students),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'major-bar',
+                      title: 'Số lượng theo ngành (Cột)',
+                      subtitle: 'So sánh nhanh giữa các ngành',
+                      details: const [
+                        'Giúp nhận ra ngành có quy mô tuyển sinh lớn.',
+                        'Nhãn trục được tối ưu cho màn hình nhỏ.',
+                      ],
+                      child: _buildTopGroupCountBar(majorCount, top: 8),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInteractiveSection(
+                      id: 'overview-table',
+                      title: 'Tổng quan dữ liệu học vụ',
+                      subtitle: 'Bảng chi tiết theo khoa/ngành/lớp/khóa',
+                      details: const [
+                        'Tóm tắt nhanh các nhóm lớn nhất theo từng chiều dữ liệu.',
+                        'Kết hợp sĩ số và GPA trung bình để so sánh đa chiều.',
+                      ],
+                      child: _buildDataOverviewTable(
+                        departmentCount: departmentCount,
+                        majorCount: majorCount,
+                        classCount: classCount,
+                        courseCount: courseCount,
+                        avgByDepartment: avgByDepartment,
+                      ),
+                    ),
+                    const SizedBox(height: 100),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'Số lượng theo ngành (Cột)',
-                  subtitle: 'So sánh nhanh giữa các ngành',
-                  child: _buildTopGroupCountBar(majorCount, top: 8),
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'GPA trung bình theo khóa (Biểu đồ miền)',
-                  subtitle: 'Xu hướng chất lượng theo từng khóa',
-                  child: _buildAvgByCourseAreaChart(avgByCourse),
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: 'Tổng quan dữ liệu học vụ',
-                  subtitle: 'Bảng chi tiết theo khoa/ngành/lớp/khóa',
-                  child: _buildDataOverviewTable(
-                    departmentCount: departmentCount,
-                    majorCount: majorCount,
-                    classCount: classCount,
-                    courseCount: courseCount,
-                    avgByDepartment: avgByDepartment,
+              ),
+              IgnorePointer(
+                ignoring: true,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 220),
+                  opacity: _focusedSectionId == null ? 0 : 1,
+                  child: CustomPaint(
+                    painter: _FocusBackdropPainter(holeRect: _focusRect),
+                    size: Size.infinite,
                   ),
                 ),
-                const SizedBox(height: 100),
-              ],
-            ),
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildInteractiveSection({
+    required String id,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    required List<String> details,
+  }) {
+    return KeyedSubtree(
+      key: _sectionKey(id),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        scale: _isFocused(id) ? 1.03 : 1,
+        child: _SectionCard(
+          title: title,
+          subtitle: subtitle,
+          isFocused: _isFocused(id),
+          focusDetails: details,
+          onTap: () => _toggleFocus(id),
+          child: child,
+        ),
       ),
     );
   }
@@ -135,8 +271,9 @@ class StatisticsScreen extends StatelessWidget {
     return result;
   }
 
-  Widget _buildScholarshipTable(List<Student> students) {
+  Widget _buildScholarshipTable(BuildContext context, List<Student> students) {
     final data = _top3ScholarshipByDepartmentCourse(students);
+    final minTableWidth = MediaQuery.of(context).size.width + 120;
 
     return Column(
       children: data.entries.map((entry) {
@@ -158,27 +295,74 @@ class StatisticsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                DataTable(
-                  columns: const [
-                    DataColumn(label: Text("Top")),
-                    DataColumn(label: Text("Tên")),
-                    DataColumn(label: Text("MSSV")),
-                    DataColumn(label: Text("GPA")),
-                    DataColumn(label: Text("Học lực")),
-                  ],
-                  rows: List.generate(list.length, (i) {
-                    final s = list[i];
-
-                    return DataRow(
-                      cells: [
-                        DataCell(Text("#${i + 1}")),
-                        DataCell(Text(s.name)),
-                        DataCell(Text(s.studentCode)),
-                        DataCell(Text(s.gpa.toStringAsFixed(2))),
-                        DataCell(Text(s.academicRankLabel)),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: minTableWidth),
+                    child: DataTable(
+                      columnSpacing: 18,
+                      headingRowHeight: 42,
+                      dataRowMinHeight: 46,
+                      dataRowMaxHeight: 66,
+                      columns: const [
+                        DataColumn(
+                          label: SizedBox(width: 36, child: Text('Top')),
+                        ),
+                        DataColumn(
+                          label: SizedBox(width: 122, child: Text('Tên')),
+                        ),
+                        DataColumn(
+                          label: SizedBox(width: 108, child: Text('MSSV')),
+                        ),
+                        DataColumn(
+                          label: SizedBox(width: 44, child: Text('GPA')),
+                        ),
+                        DataColumn(
+                          label: SizedBox(width: 86, child: Text('Học lực')),
+                        ),
                       ],
-                    );
-                  }),
+                      rows: List.generate(list.length, (i) {
+                        final s = list[i];
+
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('#${i + 1}')),
+                            DataCell(
+                              SizedBox(
+                                width: 122,
+                                child: Text(
+                                  s.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                width: 108,
+                                child: Text(
+                                  s.studentCode,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            DataCell(Text(s.gpa.toStringAsFixed(2))),
+                            DataCell(
+                              SizedBox(
+                                width: 86,
+                                child: Text(
+                                  s.academicRankLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -399,16 +583,27 @@ class StatisticsScreen extends StatelessWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                reservedSize: 68,
                 getTitlesWidget: (value, meta) {
                   final i = value.toInt();
                   if (i < 0 || i >= topKeys.length) {
                     return const SizedBox.shrink();
                   }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      _shortLabel(topKeys[i], 10),
-                      style: const TextStyle(fontSize: 10),
+                  return SideTitleWidget(
+                    axisSide: meta.axisSide,
+                    space: 8,
+                    child: Transform.rotate(
+                      angle: -0.78,
+                      child: SizedBox(
+                        width: 64,
+                        child: Text(
+                          _shortLabel(topKeys[i], 18),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -583,16 +778,27 @@ class StatisticsScreen extends StatelessWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                reservedSize: 68,
                 getTitlesWidget: (value, meta) {
                   final i = value.toInt();
                   if (i < 0 || i >= sorted.length) {
                     return const SizedBox.shrink();
                   }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      _shortLabel(sorted[i].key, 10),
-                      style: const TextStyle(fontSize: 10),
+                  return SideTitleWidget(
+                    axisSide: meta.axisSide,
+                    space: 8,
+                    child: Transform.rotate(
+                      angle: -0.78,
+                      child: SizedBox(
+                        width: 64,
+                        child: Text(
+                          _shortLabel(sorted[i].key, 18),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -665,16 +871,27 @@ class StatisticsScreen extends StatelessWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                reservedSize: 68,
                 getTitlesWidget: (value, meta) {
                   final i = value.toInt();
                   if (i < 0 || i >= sorted.length) {
                     return const SizedBox.shrink();
                   }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      _shortLabel(sorted[i].key, 8),
-                      style: const TextStyle(fontSize: 10),
+                  return SideTitleWidget(
+                    axisSide: meta.axisSide,
+                    space: 8,
+                    child: Transform.rotate(
+                      angle: -0.78,
+                      child: SizedBox(
+                        width: 58,
+                        child: Text(
+                          _shortLabel(sorted[i].key, 16),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -817,37 +1034,158 @@ class StatisticsScreen extends StatelessWidget {
   }
 }
 
+class _FocusBackdropPainter extends CustomPainter {
+  _FocusBackdropPainter({required this.holeRect});
+
+  final Rect? holeRect;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final layerRect = Offset.zero & size;
+    canvas.saveLayer(layerRect, Paint());
+
+    canvas.drawRect(
+      layerRect,
+      Paint()..color = Colors.black.withValues(alpha: 0.35),
+    );
+
+    final rect = holeRect;
+    if (rect != null) {
+      final hole = RRect.fromRectAndRadius(
+        rect.inflate(6),
+        const Radius.circular(20),
+      );
+      canvas.drawRRect(hole, Paint()..blendMode = BlendMode.clear);
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _FocusBackdropPainter oldDelegate) {
+    return oldDelegate.holeRect != holeRect;
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
+    required this.isFocused,
+    required this.focusDetails,
+    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final bool isFocused;
+  final List<String> focusDetails;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isFocused
+                  ? primary.withValues(alpha: 0.75)
+                  : const Color(0x00000000),
+              width: isFocused ? 1.4 : 1,
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 12),
-            child,
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isFocused ? 0.12 : 0.05),
+                blurRadius: isFocused ? 20 : 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isFocused
+                          ? primary.withValues(alpha: 0.15)
+                          : Colors.grey.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      isFocused ? 'Đang focus' : 'Chạm để focus',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isFocused ? primary : Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+              if (isFocused && focusDetails.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: focusDetails
+                        .map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              '• $item',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              child,
+            ],
+          ),
         ),
       ),
     );
