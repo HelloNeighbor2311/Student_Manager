@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -22,14 +21,8 @@ class AuthService {
         scopes: const ['email', 'profile'],
         clientId: '1024315521379-htg5572e49n4v9jflpki5nv857eeevod.apps.googleusercontent.com',
       );
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // Android uses the OAuth client from google-services.json
-      return GoogleSignIn(
-        scopes: const ['email', 'profile'],
-        clientId: '1024315521379-g7d007m96htafspc6td4fs7e2ht8k9e1.apps.googleusercontent.com',
-      );
     } else {
-      // For other platforms (web, desktop)
+      // Android and other platforms: use google-services.json configuration
       return GoogleSignIn(
         scopes: const ['email', 'profile'],
       );
