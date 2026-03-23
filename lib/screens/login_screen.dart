@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:student_manager/screens/register_screen.dart';
 import 'package:student_manager/services/auth_service.dart';
@@ -62,11 +64,22 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.signInWithGoogle();
+      await _authService.signInWithGoogle().timeout(
+        const Duration(seconds: 35),
+        onTimeout: () => throw TimeoutException('Google sign-in timeout'),
+      );
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Đăng nhập Google đã bị hủy hoặc quá thời gian chờ. Vui lòng thử lại.';
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e is StateError ? e.message : 'Đăng nhập Google thất bại.';
+        _errorMessage = e is StateError
+            ? e.message
+            : 'Đăng nhập Google thất bại.';
       });
     } finally {
       if (mounted) {
@@ -104,10 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Quản lý sinh viên nhanh hơn với tài khoản của bạn',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.grey[700], fontSize: 14),
                   ),
                   const SizedBox(height: 24),
                   Form(
@@ -151,7 +161,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           validator: (value) {
                             final v = value ?? '';
                             if (v.isEmpty) return 'Vui lòng nhập mật khẩu.';
-                            if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự.';
+                            if (v.length < 6)
+                              return 'Mật khẩu tối thiểu 6 ký tự.';
                             return null;
                           },
                         ),

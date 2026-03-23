@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -19,13 +22,12 @@ class AuthService {
       // iOS uses the GIDClientID from Info.plist
       return GoogleSignIn(
         scopes: const ['email', 'profile'],
-        clientId: '1024315521379-htg5572e49n4v9jflpki5nv857eeevod.apps.googleusercontent.com',
+        clientId:
+            '1024315521379-htg5572e49n4v9jflpki5nv857eeevod.apps.googleusercontent.com',
       );
     } else {
       // Android and other platforms: use google-services.json configuration
-      return GoogleSignIn(
-        scopes: const ['email', 'profile'],
-      );
+      return GoogleSignIn(scopes: const ['email', 'profile']);
     }
   }
 
@@ -43,7 +45,9 @@ class AuthService {
         password: password,
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint('Auth signInWithEmailPassword failed: ${e.code} | ${e.message}');
+      debugPrint(
+        'Auth signInWithEmailPassword failed: ${e.code} | ${e.message}',
+      );
       throw StateError(_buildDetailedError(e));
     }
   }
@@ -58,7 +62,9 @@ class AuthService {
         password: password,
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint('Auth registerWithEmailPassword failed: ${e.code} | ${e.message}');
+      debugPrint(
+        'Auth registerWithEmailPassword failed: ${e.code} | ${e.message}',
+      );
       throw StateError(_buildDetailedError(e));
     }
   }
@@ -70,9 +76,14 @@ class AuthService {
         return await _firebaseAuth.signInWithPopup(provider);
       }
 
-      debugPrint('Starting Google Sign-In on ${defaultTargetPlatform.toString()}');
-      
-      final googleUser = await _googleSignInClient.signIn();
+      debugPrint(
+        'Starting Google Sign-In on ${defaultTargetPlatform.toString()}',
+      );
+
+      final googleUser = await _googleSignInClient.signIn().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => null,
+      );
       if (googleUser == null) {
         throw StateError('Bạn đã hủy đăng nhập Google.');
       }
@@ -82,9 +93,11 @@ class AuthService {
       final googleAuth = await googleUser.authentication;
       if (googleAuth.accessToken == null) {
         debugPrint('Access token is null');
-        throw StateError('Không thể lấy access token từ Google. Vui lòng thử lại.');
+        throw StateError(
+          'Không thể lấy access token từ Google. Vui lòng thử lại.',
+        );
       }
-      
+
       if (googleAuth.idToken == null) {
         debugPrint('ID token is null');
         throw StateError('Không thể lấy ID token từ Google. Vui lòng thử lại.');
@@ -100,13 +113,19 @@ class AuthService {
       debugPrint('Created Firebase credential, signing in...');
 
       final result = await _firebaseAuth.signInWithCredential(credential);
-      
+
       debugPrint('Successfully signed in with Google: ${result.user?.email}');
-      
+
       return result;
     } on FirebaseAuthException catch (e) {
       debugPrint('Auth signInWithGoogle failed: ${e.code} | ${e.message}');
       throw StateError(_buildDetailedError(e));
+    } on PlatformException catch (e) {
+      final code = e.code.toLowerCase();
+      if (code.contains('canceled') || code.contains('cancelled')) {
+        throw StateError('Bạn đã hủy đăng nhập Google.');
+      }
+      throw StateError('Đăng nhập Google thất bại: ${e.message ?? e.code}');
     } catch (e) {
       debugPrint('Unexpected error during Google Sign-In: $e');
       throw StateError('Đăng nhập Google thất bại: ${e.toString()}');
